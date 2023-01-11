@@ -2,6 +2,21 @@ import cv2
 import pandas as pd
 
 
+def import_openslide():
+    # The path can also be read from a config file, etc.
+    OPENSLIDE_PATH = r'c:/Users/bkh59/lib/KBSMC_tutorial/openslide-win64/bin'
+
+    import os
+
+    if hasattr(os, 'add_dll_directory'):
+        # Python >= 3.8 on Windows
+        with os.add_dll_directory(OPENSLIDE_PATH):
+            import openslide
+    else:
+        import openslide
+    return openslide
+
+
 def resize_and_pad_image(img, target_size=(512, 512), keep_ratio=False, padding=False, interpolation=None):
     # 1) Calculate ratio
     old_size = img.shape[:2]
