@@ -47,10 +47,6 @@ if __name__ == '__main__':
         slide = openslide.OpenSlide(svs_path)
         w_pixels, h_pixels = slide.level_dimensions[0]
 
-        # Open Mask
-        # mask_path = mask_paths[file_index]
-        # tissue_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-
         svs_name = svs_path.split(os.sep)[-1]
         svs_name = svs_name[:-4]
         annotation_geojson_path = f'./data/GC_cance_geojson/{svs_name}.geojson'

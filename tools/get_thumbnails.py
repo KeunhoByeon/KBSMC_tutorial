@@ -6,8 +6,8 @@ import openslide
 from tqdm import tqdm
 
 
-svs_dir = '../data/raw_data/TCGA_Stomach_452/'
-save_dir = '../data/thumbnail/TCGA_Stomach_452/'
+svs_dir = '../data/GC_cancer_slides'
+save_dir = '../data/GC_cancer_thumbnails'
 
 
 def get_svs_paths(svs_dir):
@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     for svs_path in tqdm(get_svs_paths(svs_dir)):
         filename = os.path.basename(svs_path)
-        file_full_index = filename.replace(os.path.splitext(filename)[-1], '').lower()
+        file_full_index = filename.replace(os.path.splitext(filename)[-1], '')
         file_index = '-'.join(file_full_index.split('-')[:3])
 
         thumbnail = extract_thumbnail(svs_path, thumbnail_size=1024)
