@@ -110,7 +110,10 @@ def run(args):
 
     # CUDA
     if torch.cuda.is_available():
-        model = model.cuda()
+        if torch.cuda.device_count() > 1:
+            model = torch.nn.DataParallel(model).cuda()
+        else:
+            model = model.cuda()
 
     # Dataset
     train_set, val_set, test_set = prepare_KBSMCDataset()
@@ -154,7 +157,7 @@ if __name__ == '__main__':
     # Training Arguments
     parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
     parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')
-    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')
+    parser.add_argument('--batch_size', default=32, type=int, help='mini-batch size')
     parser.add_argument('--lr', default=0.000001, type=float, help='initial learning rate', dest='lr')
     parser.add_argument('--seed', default=103, type=int, help='seed for initializing training.')
     # Validation and Debugging Arguments
