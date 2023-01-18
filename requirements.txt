@@ -1,0 +1,6 @@
+joblib==1.2.0
+mahotas==1.4.13
+opencv-python==4.7.0.68
+openslide-python==1.2.0
+pandas==1.5.2
+tqdm==4.64.1

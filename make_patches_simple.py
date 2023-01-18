@@ -1,20 +1,12 @@
+import numpy as np
+#import openslide # for window
 import os
 
-import numpy as np
+from collections import Counter
+from make_mask import make_mask
 from tqdm import tqdm
-
-# import openslide
-# for window
 from utils import import_openslide
-
 openslide = import_openslide()
-
-svs_dir = './data/GC_cancer_slides'
-patch_save_dir = './data/GC_cancer_patch_simple'
-
-read_size = 1024
-step = 1.0
-
 
 def is_background(slide_img):
     np_img = np.array(slide_img)
@@ -24,8 +16,17 @@ def is_background(slide_img):
         return True
     return False
 
-
 if __name__ == '__main__':
+    #0. Set Parameters
+    project_name = 'Qupath2'
+    patch_size = 1024
+    step = 1.0
+    mask_threshold = 0.8
+    mask_ratio = 0.3
+
+    svs_dir = f'./Data/{project_name}/data'
+    patch_save_dir = f'./Data/{project_name}/patch'
+
     # 1. Get SVS Paths
     svs_paths = {}
     for path, dir, files in os.walk(svs_dir):
@@ -43,9 +44,9 @@ if __name__ == '__main__':
         w_pixels, h_pixels = slide.level_dimensions[0]
 
         os.makedirs(os.path.join(patch_save_dir, file_index), exist_ok=True)
-        for w_i in tqdm(range(0, w_pixels, int(read_size * step)), desc="Processing {}/{}".format(svs_idx + 1, len(svs_paths))):
-            for h_i in range(0, h_pixels, int(read_size * step)):
-                slide_img = slide.read_region((w_i, h_i), 0, (read_size, read_size))
+        for w_i in tqdm(range(0, w_pixels, int(patch_size * step)), desc="Processing {}/{}".format(svs_idx + 1, len(svs_paths))):
+            for h_i in range(0, h_pixels, int(patch_size * step)):
+                slide_img = slide.read_region((w_i, h_i), 0, (patch_size, patch_size))
                 if is_background(slide_img):  # Check if slide image is bg
                     continue
                 save_path = os.path.join(patch_save_dir, file_index, '{}_patch_{}_{}.png'.format(file_index, w_i, h_i))

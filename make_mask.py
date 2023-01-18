@@ -1,20 +1,16 @@
-import json
 import os
+os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = str(pow(2,40))
+import json
 from glob import glob
-
 import cv2
 import mahotas.polygon as mp
 import numpy as np
 from tqdm import tqdm
-
-# import openslide
-# for window
+# import openslide for window
 from utils import import_openslide
-
 openslide = import_openslide()
 
-
-def load_label_info(info, order):
+def load_label_info(info, order=None):
     result = {}
     try:
         if "pathClasses" in info.keys():
@@ -24,7 +20,9 @@ def load_label_info(info, order):
         pass
 
     for i, info in enumerate(info):
-        result[info['name'].upper()] = [order.index(info['name']) + 1, info['color']]
+        result[info['name'].upper()] = [i+1, info['color']]
+    # for i, info in enumerate(info):
+    #     result[info['name'].upper()] = [order.index(info['name']) + 1, info['color']]
     return result
 
 
@@ -40,16 +38,11 @@ def load_annotation_info(annotation_info):
 
     return annotation_info
 
-
 def make_mask(svs_path, annotation_geojson_path, label_info_path):
-    order = ['BN', 'WD', 'MD', 'PD', 'T_W', 'T_M', 'T_P', 'T_LS',
-             'papillary', 'Mucinous', 'signet', 'poorly', 'LVI',
-             'mucosa', 'mucus', 'submucosa', 'subserosa', 'MM', 'PM', 'Immune cells']
-
     # load svs
     slide = openslide.OpenSlide(svs_path)
     w_pixels, h_pixels = slide.level_dimensions[0]
-    image_masked = np.zeros((w_pixels, h_pixels), dtype=np.int8)
+    image_masked = np.zeros((h_pixels, w_pixels), dtype=np.int8)
 
     # load annotation_ info
     annotation_geojson_file = open(annotation_geojson_path)
@@ -59,35 +52,48 @@ def make_mask(svs_path, annotation_geojson_path, label_info_path):
     # load label info
     label_info_json_file = open(label_info_path)
     label_info_json_file = json.load(label_info_json_file)
-    label_info = load_label_info(label_info_json_file, order)
+    label_info = load_label_info(label_info_json_file)
 
     for object_idx in range(len(annotation_info)):
-        for i, annotation_pts in enumerate(annotation_info[object_idx]['geometry']['coordinates']):
-            pts = [(round(px), round(py)) for px, py in annotation_pts]
-            if i == 0:
-                name = annotation_info[object_idx]['properties']['classification']['name'].upper()
-                label = label_info[name][0]
-                mp.fill_polygon(pts, image_masked, label)
-            else:
-                mp.fill_polygon(pts, image_masked, 0)
-
+        if annotation_info[object_idx]['geometry']['type'].lower() == 'polygon':
+            for i, annotation_pts in enumerate(annotation_info[object_idx]['geometry']['coordinates']):
+                pts = [(round(py), round(px)) for px, py in annotation_pts]
+                if i == 0:
+                    name = annotation_info[object_idx]['properties']['classification']['name'].upper()
+                    label = label_info[name][0]
+                    mp.fill_polygon(pts, image_masked, label)
+                else:
+                    mp.fill_polygon(pts, image_masked, 0)
+        elif annotation_info[object_idx]['geometry']['type'].lower() == 'multipolygon':
+            for annotations in annotation_info[object_idx]['geometry']['coordinates']:
+                for i, annotation_pts in enumerate(annotations):
+                    pts = [(round(py), round(px)) for px, py in annotation_pts]
+                    name = annotation_info[object_idx]['properties']['classification']['name'].upper()
+                    label = label_info[name][0]
+                    mp.fill_polygon(pts, image_masked, label)
+    del slide
     return image_masked
 
-
 if __name__ == '__main__':
-    root_dir = './data'
-    svs_list = glob(f"{root_dir}/GC_cancer_slides/*.svs")
+    project_name = 'Qupath2'
 
+    svs_list = glob(f"./Data/{project_name}/data/*.svs")
     for svs_name in tqdm(svs_list):
         svs_name = svs_name.split(os.sep)[-1]
         svs_name = svs_name[:-4]
 
-        svs_path = f'{root_dir}/GC_cancer_slides/{svs_name}.svs'
-        annotation_geojson_path = f'{root_dir}/GC_cance_geojson/{svs_name}.geojson'
-        label_info_path = f'{root_dir}/Project/classifiers/classes.json'
+        svs_path = f'./Data/{project_name}/data/{svs_name}.svs'
+        annotation_geojson_path = f'./Data/{project_name}/data/{svs_name}.geojson'
+        label_info_path = f'./Data/{project_name}/project/classifiers/classes.json'
+
+        patch_save_dir = f'./Data/{project_name}/mask'
+        os.makedirs(patch_save_dir, exist_ok=True)
 
         image_masked = make_mask(svs_path, annotation_geojson_path, label_info_path)
+        cv2.imwrite(f'./Data/{project_name}/mask/{svs_name}.png', image_masked)
 
-        patch_save_dir = f'{root_dir}/GC_cancer_mask'
-        os.makedirs(patch_save_dir, exist_ok=True)
-        cv2.imwrite(root_dir + f'/GC_cancer_mask/{svs_name}.png', image_masked)
+        image_masked_thumnail = cv2.resize(image_masked.astype('float32'), (0, 0), fx=0.1, fy=0.1, interpolation=cv2.INTER_AREA)
+        del image_masked
+        image_masked_thumnail[image_masked_thumnail>0] = 255
+        cv2.imwrite(f'./Data/{project_name}/mask/{svs_name}_thumnail.png', image_masked_thumnail)
+        del image_masked_thumnail

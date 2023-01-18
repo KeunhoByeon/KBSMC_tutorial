@@ -1,5 +1,31 @@
+import json
+import math
+
 import cv2
 import pandas as pd
+
+
+def load_color_info(classifier_json_path):
+    classifier_json = open(classifier_json_path)
+    info = json.load(classifier_json)
+
+    result = {}
+    try:
+        if "pathClasses" in info.keys():
+            info = info["pathClasses"]
+    except AttributeError:
+        # already a list?
+        pass
+
+    result[0] = (255, 255, 255)
+    for i, info in enumerate(info):
+        color = 16777216 + info['color']
+        R = math.floor(color / (256 * 256))
+        G = math.floor(color / 256) % 256
+        B = color % 256
+        result[i + 1] = (R, G, B)
+
+    return dict(sorted(result.items()))  # RGB
 
 
 def import_openslide():

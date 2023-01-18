@@ -1,5 +1,22 @@
 # KBSMC_tutorial
 
+### 0. Install Enviroments
+
+```
+conda create -n KBSMC_tutorial python=3.8
+
+conda activate KBSMC_tutorial
+
+pip install -r requirements.txt
+
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.6 -c pytorch
+
+#pytorch download link
+https://pytorch.org/get-started/locally/
+
+
+```
+
 ### 1. Make Patches
 
 ```

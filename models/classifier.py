@@ -1,8 +1,6 @@
 import torch.nn as nn
 from torchvision.models import *
 
-# from torchvision.models.efficientnet import efficientnet_b0, efficientnet_b4, efficientnet_b7
-# from torchvision.models.resnet import resnet18, resnet101
 
 class Classifier(nn.Module):
     def __init__(self, base_model, num_classes=2, **kwargs):

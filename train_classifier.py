@@ -17,8 +17,9 @@ def val(epoch, model, criterion, val_loader, logger=None):
     model.eval()
 
     confusion_mat = [[0 for _ in range(args.num_classes)] for _ in range(args.num_classes)]
-    with torch.no_grad():
+    with torch.no_grad():  # Disable gradient calculation
         for i, (inputs, targets) in tqdm(enumerate(val_loader), leave=False, desc='Validation {}'.format(epoch), total=len(val_loader)):
+            # CUDA
             if torch.cuda.is_available():
                 inputs = inputs.cuda()
                 targets = targets.cuda()
@@ -106,7 +107,7 @@ def run(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     # Scheduler
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.8)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
     # CUDA
     if torch.cuda.is_available():
@@ -116,7 +117,7 @@ def run(args):
             model = model.cuda()
 
     # Dataset
-    train_set, val_set, test_set = prepare_KBSMCDataset()
+    train_set, val_set, _ = prepare_KBSMCDataset(args.data, no_testset=True)
     train_dataset = ClassificationDataset(args.data, input_size=args.input_size, svs_indices=train_set)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.workers, pin_memory=True, shuffle=True)
     val_dataset = ClassificationDataset(args.data, input_size=args.input_size, svs_indices=val_set)
@@ -144,26 +145,27 @@ def run(args):
 
 
 if __name__ == '__main__':
+    # Arguments 설정
     parser = argparse.ArgumentParser(description='PyTorch Training')
     # Model Arguments
     parser.add_argument('--model', default='efficientnet_b0')
-    parser.add_argument('--num_classes', default=20, type=int, help='number of classes')
+    parser.add_argument('--num_classes', default=18, type=int, help='number of classes')
     parser.add_argument('--pretrained', default=True, action='store_true', help='Load pretrained model.')
     parser.add_argument('--resume', default=None, type=str, help='path to latest checkpoint')
     # Data Arguments
-    parser.add_argument('--data', default='./data/GC_cancer_patch', help='path to dataset')
+    parser.add_argument('--data', default='./Data/Qupath2/patch', help='path to dataset')
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
     parser.add_argument('--input_size', default=512, type=int, help='image input size')
     # Training Arguments
     parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
     parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')
-    parser.add_argument('--batch_size', default=32, type=int, help='mini-batch size')
+    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')
     parser.add_argument('--lr', default=0.00001, type=float, help='initial learning rate', dest='lr')
     parser.add_argument('--seed', default=103, type=int, help='seed for initializing training.')
     # Validation and Debugging Arguments
-    parser.add_argument('--val_freq', default=1, type=int, help='validation frequency')
+    parser.add_argument('--val_freq', default=10, type=int, help='validation frequency')
     parser.add_argument('--print_freq', default=1000, type=int, help='print frequency')
-    parser.add_argument('--print_confusion_mat', default=True, action='store_true')
+    parser.add_argument('--print_confusion_mat', default=False, action='store_true')
     parser.add_argument('--result', default='results', type=str, help='path to results')
     parser.add_argument('--tag', default=None, type=str)
     args = parser.parse_args()

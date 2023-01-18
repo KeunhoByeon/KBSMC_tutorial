@@ -8,16 +8,45 @@ from torch.utils.data import Dataset
 from utils import resize_and_pad_image
 
 
-def prepare_KBSMCDataset():  # Hard Coded
-    train_set = ["S16-5382,E,", "S16-8222,24,", "S16-6972,C,", "S16-12343,9,"]
-    val_set = ["S17-1859,G,"]
-    test_set = []
+def prepare_KBSMCDataset(data_dir, no_testset=False):
+    anno_indices = []
+    for anno_index in os.listdir(data_dir):
+        if not os.path.isdir(os.path.join(data_dir, anno_index)):
+            continue
+        anno_indices.append(anno_index)
+    anno_indices.sort()
+
+    if len(anno_indices) >= 10:
+        num_test_set = len(anno_indices) // 10
+        num_val_set = len(anno_indices) // 10
+    elif len(anno_indices) >= 3:
+        num_test_set = 1
+        num_val_set = 1
+    elif len(anno_indices) >= 2:
+        num_test_set = 0
+        num_val_set = 1
+    else:
+        num_test_set = 0
+        num_val_set = 0
+
+    if no_testset:
+        num_test_set = 0
+
+    num_train_set = len(anno_indices) - num_val_set - num_test_set
+
+    train_set = anno_indices[0:num_train_set]
+    val_set = anno_indices[num_train_set:num_train_set + num_val_set] if num_val_set > 0 else []
+    test_set = anno_indices[num_train_set + num_val_set: num_train_set + num_val_set + num_test_set] if num_test_set > 0 else []
+
+    print(len(train_set), len(val_set), len(test_set))
+
     return train_set, val_set, test_set
 
 
 class ClassificationDataset(Dataset):
-    def __init__(self, data_dir, svs_indices=None, input_size: int = None):
+    def __init__(self, data_dir, svs_indices=None, input_size: int = None, return_path: bool = False):
         self.input_size = input_size
+        self.return_path = return_path
 
         self.mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
@@ -58,6 +87,8 @@ class ClassificationDataset(Dataset):
         img = img.transpose(2, 0, 1)
         img = torch.from_numpy(img)
 
+        if self.return_path:
+            return img_path, img, gt
         return img, gt
 
     def __len__(self):
