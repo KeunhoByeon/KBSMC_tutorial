@@ -29,5 +29,11 @@ https://pytorch.org/get-started/locally/
 
 ```
 2-1. dataloader.py
-2-2. run.py
+```
+
+### 3. Train and Test Classifier
+
+```
+3-1. train_classifier.py
+3-2. test_classifier.py
 ```
