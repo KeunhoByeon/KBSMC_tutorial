@@ -136,7 +136,7 @@ def run(args):
         train(args, epoch, model, criterion, optimizer, train_loader, logger=logger)
 
         # Validation
-        if epoch % args.val_freq == 0 or epoch == args.epoch - 1:
+        if epoch % args.val_freq == 0 or epoch == args.epochs - 1:
             val(epoch, model, criterion, val_loader, logger=logger)
             torch.save(model.state_dict(), os.path.join(save_dir, '{}.pth'.format(epoch)))
 
