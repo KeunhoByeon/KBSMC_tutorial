@@ -8,7 +8,7 @@ from joblib import Parallel, delayed
 from tqdm import tqdm
 
 from make_mask import make_mask
-from utils import import_openslide
+from utils import import_openslide, load_color_info
 
 openslide = import_openslide()
 
@@ -36,6 +36,8 @@ def get_label(mask, patch_size, ratio):
 
 
 def make_patch(slide_img, w_i, h_i, tissue_mask):
+    slide_img = cv2.cvtColor(np.array(slide_img), cv2.COLOR_RGB2BGR)
+
     if is_background(slide_img):  # Check if slide image is bg
         return
 
@@ -43,14 +45,23 @@ def make_patch(slide_img, w_i, h_i, tissue_mask):
     label = get_label(mask=slide_mask, patch_size=patch_size, ratio=mask_ratio)
     slide_save_path = os.path.join(patch_save_dir, file_index, '{}_patch_x{}_y{}_{}.png'.format(file_index, w_i, h_i, label))
     mask_save_path = os.path.join(mask_save_dir, file_index, '{}_patch_x{}_y{}_{}.png'.format(file_index, w_i, h_i, label))
+    masked_slide_path = os.path.join(masked_slide_save_dir, file_index, '{}_patch_x{}_y{}_{}.png'.format(file_index, w_i, h_i, label))
 
-    slide_img.save(slide_save_path)
+    color_map = slide_mask.copy().astype(np.uint8)
+    color_map = cv2.cvtColor(color_map, cv2.COLOR_GRAY2BGR)
+    color_map[:, :, 2] = np.where(color_map[:, :, 2] > 0, colors[label][0], color_map[:, :, 2])
+    color_map[:, :, 1] = np.where(color_map[:, :, 1] > 0, colors[label][1], color_map[:, :, 1])
+    color_map[:, :, 0] = np.where(color_map[:, :, 0] > 0, colors[label][2], color_map[:, :, 0])
+    color_masked_patch = cv2.addWeighted(slide_img, 0.4, color_map, 0.6, 0)
+
+    cv2.imwrite(slide_save_path, slide_img)
     cv2.imwrite(mask_save_path, slide_mask)
-
+    cv2.imwrite(masked_slide_path, color_masked_patch)
 
 if __name__ == '__main__':
     # 0. Set Parameters
     project_name = 'Qupath2'
+    json_path = './Data/Qupath2/project/classifiers/classes.json'
     patch_size = 1024
     step = 1.0
     mask_ratio = 0.3
@@ -58,6 +69,8 @@ if __name__ == '__main__':
     svs_dir = f'./Data/{project_name}/data'
     patch_save_dir = f'./Data/{project_name}/patch'
     mask_save_dir = f'./Data/{project_name}/mask'
+    masked_slide_save_dir = f'./Data/{project_name}/patch_debug'
+    colors = load_color_info(json_path)
 
     # 1. Get SVS Paths
     svs_paths = {}
@@ -83,6 +96,7 @@ if __name__ == '__main__':
 
         os.makedirs(os.path.join(patch_save_dir, file_index), exist_ok=True)
         os.makedirs(os.path.join(mask_save_dir, file_index), exist_ok=True)
+        os.makedirs(os.path.join(masked_slide_save_dir, file_index), exist_ok=True)
 
         coords = []
         for w_i in range(0, w_pixels, int(patch_size * step)):
