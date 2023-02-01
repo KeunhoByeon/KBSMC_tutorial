@@ -95,18 +95,18 @@ def run(args):
         torch.manual_seed(args.seed)
         torch.backends.cudnn.deterministic = True
 
-    # Model
+    # [변경] Model 설정
     model = Classifier(args.model, num_classes=args.num_classes, pretrained=args.pretrained)
     if args.resume is not None:  # resume
         model.load_state_dict(torch.load(args.resume))
 
-    # Criterion (Loss Function)
+    # [변경] Criterion (Loss Function, 손실 함수)  설정
     criterion = nn.CrossEntropyLoss()
 
-    # Optimizer
+    # [변경] Optimizer 옵티마이저  설정
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    # Scheduler
+    # [변경] 스케줄러 설정
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
 
     # CUDA
@@ -148,24 +148,24 @@ if __name__ == '__main__':
     # Arguments 설정
     parser = argparse.ArgumentParser(description='PyTorch Training')
     # Model Arguments
-    parser.add_argument('--model', default='efficientnet_b0')
-    parser.add_argument('--num_classes', default=18, type=int, help='number of classes')
+    parser.add_argument('--model', default='efficientnet_b0') #[변경] 사용할 모델 이름
+    parser.add_argument('--num_classes', default=18, type=int, help='number of classes') #[변경] 데이터의 클래스 종류의 수
     parser.add_argument('--pretrained', default=True, action='store_true', help='Load pretrained model.')
     parser.add_argument('--resume', default=None, type=str, help='path to latest checkpoint')
     # Data Arguments
-    parser.add_argument('--data', default='./Data/Qupath2/patch', help='path to dataset')
+    parser.add_argument('--data', default='./Data/Qupath2/patch', help='path to dataset') #[변경] 이미지 패치 저장 경로
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
-    parser.add_argument('--input_size', default=512, type=int, help='image input size')
+    parser.add_argument('--input_size', default=512, type=int, help='image input size') #[변경] 입력 이미지의 크기
     # Training Arguments
     parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
-    parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')
-    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')
-    parser.add_argument('--lr', default=0.00001, type=float, help='initial learning rate', dest='lr')
+    parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run') #[변경]훈련 반복 수
+    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size') #[변경]배치 사이즈
+    parser.add_argument('--lr', default=0.00001, type=float, help='initial learning rate', dest='lr') #[변경] 초기 Learning rate
     parser.add_argument('--seed', default=103, type=int, help='seed for initializing training.')
     # Validation and Debugging Arguments
     parser.add_argument('--val_freq', default=10, type=int, help='validation frequency')
     parser.add_argument('--print_freq', default=1000, type=int, help='print frequency')
-    parser.add_argument('--print_confusion_mat', default=False, action='store_true')
+    parser.add_argument('--print_confusion_mat', default=False, action='store_true') #[변경] Validation이 끝날 때 Confusion Matrix 출력 여부.
     parser.add_argument('--result', default='results', type=str, help='path to results')
     parser.add_argument('--tag', default=None, type=str)
     args = parser.parse_args()

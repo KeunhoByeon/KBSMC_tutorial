@@ -163,18 +163,18 @@ if __name__ == '__main__':
     # Arguments 설정
     parser = argparse.ArgumentParser(description='PyTorch Training')
     # Model Arguments
-    parser.add_argument('--model', default='efficientnet_b0')
-    parser.add_argument('--num_classes', default=18, type=int, help='number of classes')
+    parser.add_argument('--model', default='efficientnet_b0') #[변경] 사용할 모델 이름
+    parser.add_argument('--num_classes', default=18, type=int, help='number of classes') #[변경] 데이터의 클래스 종류의 수
     parser.add_argument('--checkpoint', default=None, type=str, help='path to checkpoint, not necessary')
     parser.add_argument('--checkpoint_name', default='20230118191754', type=str)
     parser.add_argument('--checkpoint_epoch', default=100, type=int)
     # Data Arguments
-    parser.add_argument('--patch_data', default='./Data/Qupath2/patch', help='path to patch data')
-    parser.add_argument('--svs_data', default='./Data/Qupath2/data', help='path to svs data')
-    parser.add_argument('--json_path', default='./Data/Qupath2/project/classifiers/classes.json', help='path to json file')
+    parser.add_argument('--patch_data', default='./Data/Qupath2/patch', help='path to patch data') #[변경] 이미지 패치 저장 경로
+    parser.add_argument('--svs_data', default='./Data/Qupath2/data', help='path to svs data') #[변경] svs파일 저장 경로
+    parser.add_argument('--json_path', default='./Data/Qupath2/project/classifiers/classes.json', help='path to json file') #[변경] json파일 저장 경로
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
-    parser.add_argument('--input_size', default=512, type=int, help='image input size')
-    parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size')
+    parser.add_argument('--input_size', default=512, type=int, help='image input size') #[변경] 입력 이미지의 크기
+    parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size') #[변경] 배치 사이즈
     # Validation and Debugging Arguments
     parser.add_argument('--print_confusion_mat', default=False, action='store_true')
     parser.add_argument('--patch_size', default=1024, type=int, help='num pixels of patch')
