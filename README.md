@@ -13,10 +13,11 @@ https://pytorch.org/get-started/locally/
 
 ### Install Openslide
 ```
-wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1AJFGTg73m5Bi4G3EBPQttVbt8iL0ujFa' -O openslide-win64.zip
+openslide-win64.zip 직접 다운로드 및 압축 해제(권장)
+https://drive.google.com/uc?export=download&id=1AJFGTg73m5Bi4G3EBPQttVbt8iL0ujFa
 
-openslide-win64.zip 직접 압축 해제 
-또는 
+다운로드 명령어 및 압축해제 명령어
+wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1AJFGTg73m5Bi4G3EBPQttVbt8iL0ujFa' -O openslide-win64.zip
 unzip ./openslide-win64.zip 
 ```
 
