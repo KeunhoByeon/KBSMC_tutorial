@@ -35,7 +35,7 @@ def get_label(mask, patch_size, ratio):
     return label
 
 
-def make_patch(slide_img, w_i, h_i, tissue_mask):
+def make_patch(slide_img, w_i, h_i, tissue_mask, alpha=0.1, is_contours=True):
     slide_img = cv2.cvtColor(np.array(slide_img), cv2.COLOR_RGB2BGR)
 
     if is_background(slide_img):  # Check if slide image is bg
@@ -47,12 +47,25 @@ def make_patch(slide_img, w_i, h_i, tissue_mask):
     mask_save_path = os.path.join(mask_save_dir, file_index, '{}_patch_x{}_y{}_{}.png'.format(file_index, w_i, h_i, label))
     masked_slide_path = os.path.join(masked_slide_save_dir, file_index, '{}_patch_x{}_y{}_{}.png'.format(file_index, w_i, h_i, label))
 
-    color_map = slide_mask.copy().astype(np.uint8)
-    color_map = cv2.cvtColor(color_map, cv2.COLOR_GRAY2BGR)
-    color_map[:, :, 2] = np.where(color_map[:, :, 2] > 0, colors[label][0], color_map[:, :, 2])
-    color_map[:, :, 1] = np.where(color_map[:, :, 1] > 0, colors[label][1], color_map[:, :, 1])
-    color_map[:, :, 0] = np.where(color_map[:, :, 0] > 0, colors[label][2], color_map[:, :, 0])
-    color_masked_patch = cv2.addWeighted(slide_img, 0.4, color_map, 0.6, 0)
+    color_map = np.array([color_table[i] for i in slide_mask.ravel()], dtype=np.uint8)
+    color_map = cv2.cvtColor(color_map.reshape((slide_mask.shape[0], slide_mask.shape[1], 3)), cv2.COLOR_BGR2RGB)
+    color_masked_patch = cv2.addWeighted(slide_img, 1-alpha, color_map, alpha, 0)
+
+    if is_contours:
+        contour_map = np.zeros((slide_mask.shape[0], slide_mask.shape[1], 3), dtype=np.uint8)
+        for label in np.unique(slide_mask):
+            if label == 0:
+                continue
+            contours, hierarchy = cv2.findContours(np.where(slide_mask == label, 255, 0).astype(np.uint8),
+                                                   cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            contour_map = cv2.drawContours(contour_map, contours, -1, color_table[label], 2)
+
+            color_masked_patch[:, :, 2] = np.where(contour_map.sum(axis=-1) > 0, color_table[label][0],
+                                                   color_masked_patch[:, :, 2])
+            color_masked_patch[:, :, 1] = np.where(contour_map.sum(axis=-1) > 0, color_table[label][1],
+                                                   color_masked_patch[:, :, 1])
+            color_masked_patch[:, :, 0] = np.where(contour_map.sum(axis=-1) > 0, color_table[label][2],
+                                                   color_masked_patch[:, :, 0])
 
     cv2.imwrite(slide_save_path, slide_img)
     cv2.imwrite(mask_save_path, slide_mask)
@@ -61,7 +74,8 @@ def make_patch(slide_img, w_i, h_i, tissue_mask):
 if __name__ == '__main__':
     # 0. Set Parameters
     project_name = 'Qupath2'
-    json_path = './Data/Qupath2/project/classifiers/classes.json'
+    is_contours = True
+    alpha = 0.1
     patch_size = 1024
     step = 1.0
     mask_ratio = 0.3
@@ -70,7 +84,8 @@ if __name__ == '__main__':
     patch_save_dir = f'./Data/{project_name}/patch'
     mask_save_dir = f'./Data/{project_name}/mask'
     masked_slide_save_dir = f'./Data/{project_name}/patch_debug'
-    colors = load_color_info(json_path)
+    json_path = f'./Data/{project_name}/project/classifiers/classes.json'
+    color_table = load_color_info(json_path)
 
     # 1. Get SVS Paths
     svs_paths = {}
@@ -107,5 +122,7 @@ if __name__ == '__main__':
         Parallel(n_jobs=mp.cpu_count() - 1)(delayed(make_patch)(
             slide.read_region((w_i, h_i), 0, (patch_size, patch_size)),
             w_i, h_i,
-            tissue_mask
+            tissue_mask,
+            alpha,
+            is_contours
         ) for w_i, h_i in tqdm(coords, desc="[{}/{}] {}".format(svs_idx + 1, len(svs_paths), file_index)))
