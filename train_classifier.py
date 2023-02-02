@@ -177,7 +177,7 @@ def run(args):
         # Validation
         if epoch % args.val_freq == 0 or epoch == args.epochs - 1:
             val(epoch, model, criterion, val_loader, logger=logger)
-            torch.save(model.state_dict(), os.path.join(save_dir, '{}.pth'.format(epoch)))
+            torch.save(model.module.state_dict(), os.path.join(save_dir, '{}.pth'.format(epoch)))
 
         # Scheduler Step
         scheduler.step()
