@@ -3,7 +3,7 @@ import math
 
 import cv2
 import pandas as pd
-
+import os
 
 def load_color_info(classifier_json_path):
     classifier_json = open(classifier_json_path)
@@ -30,9 +30,7 @@ def load_color_info(classifier_json_path):
 
 def import_openslide():
     # The path can also be read from a config file, etc.
-    OPENSLIDE_PATH = r'c:/Users/bkh59/lib/KBSMC_tutorial/openslide-win64/bin'
-
-    import os
+    OPENSLIDE_PATH = f'{os.getcwd()}' + r'/openslide-win64/bin'
 
     if hasattr(os, 'add_dll_directory'):
         # Python >= 3.8 on Windows

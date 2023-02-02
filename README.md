@@ -1,6 +1,6 @@
 # KBSMC_tutorial
 
-### 0. Install Enviroments
+### Install Enviroments
 ```
 conda update --all
 conda create -n KBSMC_tutorial python=3.8
@@ -9,6 +9,15 @@ pip install -r requirements.txt
 pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu116
 # pytorch download link
 https://pytorch.org/get-started/locally/
+```
+
+### Install Openslide
+```
+wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1AJFGTg73m5Bi4G3EBPQttVbt8iL0ujFa' -O openslide-win64.zip
+
+openslide-win64.zip 직접 압축 해제 
+또는 
+unzip ./openslide-win64.zip 
 ```
 
 ### 1. Make Patches
