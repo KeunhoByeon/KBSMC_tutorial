@@ -15,7 +15,7 @@ from models import Classifier
 
 def val(epoch, model, criterion, val_loader, logger=None):
     """
-    epoch: 학습할 에포크 횟수
+    epoch: 현재 epoch
     model: 학습할 모델 객체
     criterion: 손실 함수
     val_loader: 평가 데이터를 담은 데이터 로더
@@ -64,7 +64,7 @@ def val(epoch, model, criterion, val_loader, logger=None):
 def train(args, epoch, model, criterion, optimizer, train_loader, logger=None):
     """
     args: 학습 설정을 담고 있는 객체
-    epoch: 학습할 epoch 횟수
+    epoch: 현재 epoch
     model: 학습할 모델 객체
     criterion: 손실 함수
     optimizer: 최적화 알고리즘
@@ -95,7 +95,7 @@ def train(args, epoch, model, criterion, optimizer, train_loader, logger=None):
         loss = criterion(output, targets)
         # 경사 계산
         loss.backward()
-        # 최적화
+        # 가중치 업데이트
         optimizer.step()
 
         # 정확도 계산
@@ -151,7 +151,7 @@ def run(args):
     # CUDA
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model).cuda()
+            model = torch.nn.DataParallel(model).cuda()  # 여러 GPU
         else:
             model = model.cuda()
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='efficientnet_b0')  # [변경] 사용할 모델 이름
     parser.add_argument('--num_classes', default=18, type=int, help='number of classes')  # [변경] 데이터의 클래스 종류의 수
     parser.add_argument('--pretrained', default=True, action='store_true', help='Load pretrained model.')
-    parser.add_argument('--resume', default=None, type=str, help='path to latest checkpoint')
+    parser.add_argument('--resume', default=None, type=str, help='path to latest checkpoint')  # 가중치 로드 (이어서)
     # Data Arguments
     parser.add_argument('--data', default='./Data/Qupath2/patch', help='path to dataset')  # [변경] 이미지 패치 저장 경로
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
