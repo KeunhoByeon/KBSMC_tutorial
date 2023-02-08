@@ -1,9 +1,10 @@
 import json
 import math
+import os
 
 import cv2
 import pandas as pd
-import os
+
 
 def load_color_info(classifier_json_path):
     classifier_json = open(classifier_json_path)
@@ -17,12 +18,16 @@ def load_color_info(classifier_json_path):
         # already a list?
         pass
 
-    result[0] = (255, 255, 255)
+    result[0] = (0, 0, 0)
     for i, info in enumerate(info):
         color = 16777216 + info['color']
         R = math.floor(color / (256 * 256))
         G = math.floor(color / 256) % 256
         B = color % 256
+        if R == G == B == 0:  # TEMP
+            G = 255
+        elif R == G == B == 255:
+            G = 0
         result[i + 1] = (R, G, B)
 
     return dict(sorted(result.items()))  # RGB

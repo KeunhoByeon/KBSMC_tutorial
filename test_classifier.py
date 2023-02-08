@@ -66,8 +66,8 @@ def make_debug_image(outputs, svs_path, colors):
         pred_mask[coord_y_1:coord_y_2, coord_x_1:coord_x_2, 0] = colors[pred][2]
 
     # Image Overlay
-    pred_image = cv2.addWeighted(thumbnail, 0.2, pred_mask, 0.4, 0)
-    target_image = cv2.addWeighted(thumbnail, 0.2, target_mask, 0.4, 0)
+    pred_image = cv2.addWeighted(thumbnail, 0.4, pred_mask, 0.6, 0)
+    target_image = cv2.addWeighted(thumbnail, 0.4, target_mask, 0.6, 0)
 
     # Stack Images
     debug_image = np.vstack([thumbnail, target_image, pred_image]).astype(np.uint8)
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--json_path', default='./Data/Qupath2/project/classifiers/classes.json', help='path to json file')  # [변경] json파일 저장 경로
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
     parser.add_argument('--input_size', default=512, type=int, help='image input size')  # [변경] 입력 이미지의 크기
-    parser.add_argument('--batch_size', default=128, type=int, help='mini-batch size')  # [변경] 배치 사이즈
+    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')  # [변경] 배치 사이즈
     # Validation and Debugging Arguments
     parser.add_argument('--print_confusion_mat', default=False, action='store_true')
     parser.add_argument('--patch_size', default=1024, type=int, help='num pixels of patch')

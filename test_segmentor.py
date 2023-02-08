@@ -54,7 +54,10 @@ def save_debug_image(outputs, svs_path, colors):
             target[:, :, 1][temp_target[:, :, 1] == label] = color[1]
             target[:, :, 2][temp_target[:, :, 2] == label] = color[0]
 
-        debug_image = np.hstack([patch, pred, target]).astype(np.uint8)
+        pred = cv2.addWeighted(patch, 0.4, pred.astype(np.uint8), 0.6, 0)
+        target = cv2.addWeighted(patch, 0.4, target.astype(np.uint8), 0.6, 0)
+
+        debug_image = np.hstack([patch, pred, target])
         save_path = os.path.join(args.result, os.path.basename(patch_path))
         cv2.imwrite(save_path, debug_image)
 
