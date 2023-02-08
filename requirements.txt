@@ -5,3 +5,4 @@ openslide-python==1.2.0
 pandas==1.5.2
 tqdm==4.64.1
 tiatoolbox
+segmentation-models-pytorch

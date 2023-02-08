@@ -4,13 +4,13 @@ import random
 import time
 
 import pandas as pd
+import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
-from dataloader import ClassificationDataset, prepare_KBSMCDataset
+from dataloader import SegmentationDataset, prepare_KBSMCDataset
 from logger import Logger
-from models import Classifier
 
 
 def val(epoch, model, criterion, val_loader, logger=None):
@@ -41,14 +41,14 @@ def val(epoch, model, criterion, val_loader, logger=None):
 
             # Accuracy 계산
             preds = torch.argmax(output, dim=1)
-            acc = torch.sum(preds == targets).item() / len(inputs) * 100.
+            acc = torch.sum(preds == targets).item() / (targets.shape[0] * targets.shape[1] * targets.shape[2]) * 100.
 
             # 로그 히스토리 저장
             logger.add_history('total', {'loss': loss.item(), 'accuracy': acc})
 
             # Confusion matrix 저장
-            for t, p in zip(targets, preds):
-                confusion_mat[int(t.item())][p.item()] += 1
+            # for t, p in zip(targets, preds):
+            #     confusion_mat[int(t.item())][p.item()] += 1
 
     # 히스토리 출력
     if logger is not None:
@@ -100,7 +100,7 @@ def train(args, epoch, model, criterion, optimizer, train_loader, logger=None):
 
         # 정확도 계산
         preds = torch.argmax(output, dim=1)
-        acc = torch.sum(preds == targets).item() / len(inputs) * 100.
+        acc = torch.sum(preds == targets).item() / (targets.shape[0] * targets.shape[1] * targets.shape[2]) * 100.
 
         # 로그 히스토리 저장
         num_progress += len(inputs)
@@ -108,8 +108,8 @@ def train(args, epoch, model, criterion, optimizer, train_loader, logger=None):
         logger.add_history('batch', {'loss': loss.item(), 'accuracy': acc})
 
         # Confusion matrix 저장
-        for t, p in zip(targets, preds):
-            confusion_mat[int(t.item())][p.item()] += 1
+        # for t, p in zip(targets, preds):
+        #     confusion_mat[int(t.item())][p.item()] += 1
 
         # 일정 주기마다 로그 히스토리 출력
         if num_progress >= next_print:
@@ -135,7 +135,12 @@ def run(args):
         torch.backends.cudnn.deterministic = True
 
     # [변경] Model 설정
-    model = Classifier(args.model, num_classes=args.num_classes, pretrained=args.pretrained)
+    model = smp.Unet(
+        encoder_name=args.encoder_model,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
+        encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
+        in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
+        classes=args.num_classes,  # model output channels (number of classes in your dataset)
+    )
     if args.resume is not None:  # resume
         model.load_state_dict(torch.load(args.resume))
 
@@ -151,15 +156,15 @@ def run(args):
     # CUDA
     if torch.cuda.is_available():
         if torch.cuda.device_count() > 1:
-            model = torch.nn.DataParallel(model).cuda()  # 여러 GPU
+            model = torch.nn.DataParallel(model).cuda()
         else:
             model = model.cuda()
 
     # Dataset
     train_set, val_set, _ = prepare_KBSMCDataset(args.data, no_testset=True)
-    train_dataset = ClassificationDataset(args.data, input_size=args.input_size, svs_indices=train_set)
+    train_dataset = SegmentationDataset(args.data, args.mask_dir, input_size=args.input_size, svs_indices=train_set)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=args.workers, pin_memory=True, shuffle=True)
-    val_dataset = ClassificationDataset(args.data, input_size=args.input_size, svs_indices=val_set)
+    val_dataset = SegmentationDataset(args.data, args.mask_dir, input_size=args.input_size, svs_indices=val_set)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.workers, pin_memory=True, shuffle=False)
 
     # Logger
@@ -169,7 +174,6 @@ def run(args):
 
     # Run
     save_dir = os.path.join(args.result, 'checkpoints')
-    os.makedirs(save_dir, exist_ok=True)
     for epoch in range(args.start_epoch, args.epochs):
         # Train
         train(args, epoch, model, criterion, optimizer, train_loader, logger=logger)
@@ -177,6 +181,8 @@ def run(args):
         # Validation
         if epoch % args.val_freq == 0 or epoch == args.epochs - 1:
             val(epoch, model, criterion, val_loader, logger=logger)
+            os.makedirs(save_dir, exist_ok=True)
+
             model_state_dict = model.module.state_dict() if torch.cuda.device_count() > 1 else model.state_dict()
             torch.save(model_state_dict, os.path.join(save_dir, '{}.pth'.format(epoch)))
 
@@ -188,25 +194,26 @@ if __name__ == '__main__':
     # Arguments 설정
     parser = argparse.ArgumentParser(description='PyTorch Training')
     # Model Arguments
-    parser.add_argument('--model', default='efficientnet_b0')  # [변경] 사용할 모델 이름
+    parser.add_argument('--encoder_model', default='resnet34')  # [변경] 사용할 encoder 모델 이름
     parser.add_argument('--num_classes', default=18, type=int, help='number of classes')  # [변경] 데이터의 클래스 종류의 수
     parser.add_argument('--pretrained', default=True, action='store_true', help='Load pretrained model.')
     parser.add_argument('--resume', default=None, type=str, help='path to latest checkpoint')  # 가중치 로드 (이어서)
     # Data Arguments
     parser.add_argument('--data', default='./Data/Qupath2/patch', help='path to dataset')  # [변경] 이미지 패치 저장 경로
+    parser.add_argument('--mask_dir', default='./Data/Qupath2/mask', help='path to mask dir')  # [변경] 패치 마스크 저장 경로
     parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
     parser.add_argument('--input_size', default=512, type=int, help='image input size')  # [변경] 입력 이미지의 크기
     # Training Arguments
     parser.add_argument('--start_epoch', default=0, type=int, help='manual epoch number')
     parser.add_argument('--epochs', default=300, type=int, help='number of total epochs to run')  # [변경]훈련 반복 수
-    parser.add_argument('--batch_size', default=16, type=int, help='mini-batch size')  # [변경]배치 사이즈
+    parser.add_argument('--batch_size', default=4, type=int, help='mini-batch size')  # [변경]배치 사이즈
     parser.add_argument('--lr', default=0.00001, type=float, help='initial learning rate', dest='lr')  # [변경] 초기 Learning rate
     parser.add_argument('--seed', default=103, type=int, help='seed for initializing training.')
     # Validation and Debugging Arguments
     parser.add_argument('--val_freq', default=10, type=int, help='validation frequency')
     parser.add_argument('--print_freq', default=1000, type=int, help='print frequency')
     parser.add_argument('--print_confusion_mat', default=False, action='store_true')  # [변경] Validation이 끝날 때 Confusion Matrix 출력 여부.
-    parser.add_argument('--result', default='results_classifier', type=str, help='path to results')
+    parser.add_argument('--result', default='results_segmentor', type=str, help='path to results')
     parser.add_argument('--tag', default=None, type=str)
     args = parser.parse_args()
 

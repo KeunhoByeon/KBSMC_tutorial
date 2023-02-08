@@ -96,8 +96,9 @@ class ClassificationDataset(Dataset):
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, data_dir, mask_dir, svs_indices=None, input_size: int = None):
+    def __init__(self, data_dir, mask_dir, svs_indices=None, input_size: int = None, return_path: bool = False):
         self.input_size = input_size
+        self.return_path = return_path
 
         self.mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
         self.std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
@@ -115,9 +116,6 @@ class SegmentationDataset(Dataset):
             for filename in files:
                 ext = os.path.splitext(filename)[-1]
                 if ext.lower() not in ('.png', '.jpg', '.jpeg'):
-                    continue
-
-                if int(filename.strip(ext).split('_')[-1]) == 0:
                     continue
 
                 mask_paths[filename.strip(ext)] = os.path.join(path, filename)
@@ -151,8 +149,10 @@ class SegmentationDataset(Dataset):
         img = img.transpose(2, 0, 1)
         img = torch.from_numpy(img)
 
-        mask = torch.from_numpy(mask)
+        mask = torch.from_numpy(mask).long()
 
+        if self.return_path:
+            return img_path, img, mask
         return img, mask
 
     def __len__(self):

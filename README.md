@@ -42,3 +42,10 @@ unzip ./openslide-win64.zip
 3-1. train_classifier.py
 3-2. test_classifier.py
 ```
+
+### 3. Train and Test Segmentor
+
+```
+4-1. train_segmentor.py
+4-2. test_segmentor.py
+```

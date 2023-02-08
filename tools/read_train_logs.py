@@ -23,7 +23,7 @@ def read_log(txt_path):
 
 
 if __name__ == '__main__':
-    base_dir = '../results/'
+    base_dir = '../results_classifier/'
     for test_name in sorted(os.listdir(base_dir)):
         txt_path = os.path.join(base_dir, test_name, 'log.txt')
         if not os.path.isfile(txt_path):
