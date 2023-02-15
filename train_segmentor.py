@@ -4,13 +4,13 @@ import random
 import time
 
 import pandas as pd
-import segmentation_models_pytorch as smp
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 
 from dataloader import SegmentationDataset, prepare_KBSMCDataset
 from logger import Logger
+from models import Segmentor
 
 
 def val(epoch, model, criterion, val_loader, logger=None):
@@ -135,7 +135,7 @@ def run(args):
         torch.backends.cudnn.deterministic = True
 
     # [변경] Model 설정
-    model = smp.Unet(
+    model = Segmentor(
         encoder_name=args.encoder_model,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)

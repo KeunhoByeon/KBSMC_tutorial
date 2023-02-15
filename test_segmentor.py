@@ -5,12 +5,12 @@ import time
 import cv2
 import numpy as np
 import pandas as pd
-import segmentation_models_pytorch as smp
 import torch
 from tqdm import tqdm
 
 from dataloader import SegmentationDataset, prepare_KBSMCDataset
 from logger import Logger
+from models import Segmentor
 from utils import import_openslide, load_color_info
 
 # import openslide # for window
@@ -105,7 +105,7 @@ def evaluate(model, eval_loader, svs_index, logger=None):
 
 def run(args):
     # Model
-    model = smp.Unet(
+    model = Segmentor(
         encoder_name=args.encoder_model,  # choose encoder, e.g. mobilenet_v2 or efficientnet-b7
         encoder_weights="imagenet",  # use `imagenet` pre-trained weights for encoder initialization
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
