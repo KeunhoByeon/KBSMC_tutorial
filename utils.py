@@ -33,6 +33,24 @@ def load_color_info(classifier_json_path):
     return dict(sorted(result.items()))  # RGB
 
 
+def load_name_info(classifier_json_path):
+    classifier_json = open(classifier_json_path)
+    info = json.load(classifier_json)
+
+    result = {}
+    try:
+        if "pathClasses" in info.keys():
+            info = info["pathClasses"]
+    except AttributeError:
+        pass
+
+    result[0] = "Background"
+    for i, info in enumerate(info):
+        result[i + 1] = info['name']
+
+    return dict(sorted(result.items()))  # RGB
+
+
 def import_openslide():
     # The path can also be read from a config file, etc.
     OPENSLIDE_PATH = f'{os.getcwd()}' + r'/openslide-win64/bin'

@@ -1,17 +1,21 @@
 import argparse
 import os
 import time
+import warnings
 
 import cv2
 import numpy as np
 import pandas as pd
 import torch
+from geojson import Polygon, Feature, FeatureCollection, dump
 from tqdm import tqdm
 
 from dataloader import SegmentationDataset, prepare_KBSMCDataset
 from logger import Logger
 from models import Segmentor
-from utils import import_openslide, load_color_info
+from utils import import_openslide, load_color_info, load_name_info
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 # import openslide # for window
 openslide = import_openslide()
@@ -33,7 +37,7 @@ def get_thumbnail(svs_path, thumbnail_size):
 
 
 # 모델 출력 결과와 svs파일로 디버깅 이미지 생성
-def save_debug_image(outputs, svs_path, colors):
+def save_debug_image(args, outputs, svs_path, colors):
     # Make Debugging Image
 
     for patch_path, pred, target in tqdm(outputs, leave=False, desc="Post Processing"):
@@ -58,8 +62,49 @@ def save_debug_image(outputs, svs_path, colors):
         target = cv2.addWeighted(patch, 0.4, target.astype(np.uint8), 0.6, 0)
 
         debug_image = np.hstack([patch, pred, target])
-        save_path = os.path.join(args.result, os.path.basename(patch_path))
+        save_path = os.path.join(args.result, 'patch', os.path.basename(patch_path))
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         cv2.imwrite(save_path, debug_image)
+
+
+# 모델 출력 결과와 svs파일로 geojson 생성
+def save_geojson(args, outputs, svs_path, colors, names, min_area=256):
+    features = []
+
+    for i, (patch_path, pred, target) in tqdm(enumerate(outputs), leave=False, desc="Post Processing (Geojson)"):
+        patch_filename = os.path.basename(patch_path)
+        patch_info = patch_filename.strip('.png').split('_patch_')[1]
+        base_x = int(patch_info.split('_')[0].strip('x'))
+        base_y = int(patch_info.split('_')[1].strip('y'))
+        for label_index, label_name in names.items():
+            if label_index == 0:
+                continue
+
+            temp_pred_map = np.where(pred == label_index, 255, 0).astype(np.uint8)
+            temp_pred_map = cv2.morphologyEx(temp_pred_map, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (16, 16)))
+            if np.max(temp_pred_map.flatten()) == 0:
+                continue
+
+            temp_pred_map = np.where(pred == label_index, 255, 0).astype(np.uint8)
+            temp_pred_map = cv2.morphologyEx(temp_pred_map, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))
+            contours, hierarchy = cv2.findContours(temp_pred_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for contour in contours:
+                if cv2.contourArea(contour) < min_area:
+                    continue
+                contour = np.array(contour)[:, 0, :]
+                contour = contour.astype(float) * args.patch_size / args.input_size
+                contour[:, 0] += base_x
+                contour[:, 1] += base_y
+                contour = contour.astype(int).tolist()
+                contour.append(contour[0])
+
+                point = Polygon([contour])
+                features.append(Feature(id=i, geometry=point, properties={"objectType": "annotation", "classification": {"name": label_name, "color": colors[label_index]}}))
+
+
+    feature_collection = FeatureCollection(features)
+    with open(os.path.join(args.result, os.path.basename(svs_path).replace('.svs', '.geojson')), 'w') as f:
+        dump(feature_collection, f)
 
 
 def evaluate(model, eval_loader, svs_index, logger=None):
@@ -89,8 +134,6 @@ def evaluate(model, eval_loader, svs_index, logger=None):
             # Save history
             if logger is not None:
                 logger.add_history('total', {'accuracy': acc})
-            # for t, p in zip(targets, preds):
-            #     confusion_mat[int(t.item())][p.item()] += 1
 
     if logger is not None:
         logger(svs_index, history_key='total', time=time.strftime('%Y.%m.%d.%H:%M:%S'))
@@ -111,7 +154,14 @@ def run(args):
         in_channels=3,  # model input channels (1 for gray-scale images, 3 for RGB, etc.)
         classes=args.num_classes,  # model output channels (number of classes in your dataset)
     )
-    model.load_state_dict(torch.load(args.checkpoint))
+
+    state_dict = torch.load(args.checkpoint, map_location='cpu')
+    try:
+        model.load_state_dict(state_dict)
+    except:
+        for key in list(state_dict.keys()):
+            state_dict["model." + key] = state_dict.pop(key)
+        model.load_state_dict(state_dict)
 
     # CUDA
     if torch.cuda.is_available():
@@ -135,6 +185,7 @@ def run(args):
 
     # Load Debugging Colors
     colors = load_color_info(args.json_path)
+    names = load_name_info(args.json_path)
 
     # Logger
     logger = Logger(os.path.join(args.result, 'log.txt'), float_round=5)
@@ -151,7 +202,8 @@ def run(args):
         outputs = evaluate(model, eval_loader, svs_index, logger=logger)
 
         # Make and Save Debugging Image
-        save_debug_image(outputs, svs_paths[svs_index], colors=colors)
+        save_geojson(args, outputs, svs_paths[svs_index], colors=colors, names=names)
+        save_debug_image(args, outputs, svs_paths[svs_index], colors=colors)
 
 
 if __name__ == '__main__':
@@ -161,7 +213,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder_model', default='resnet34')  # [변경] 사용할 encoder 모델 이름
     parser.add_argument('--num_classes', default=18, type=int, help='number of classes')  # [변경] 데이터의 클래스 종류의 수
     parser.add_argument('--checkpoint', default=None, type=str, help='path to checkpoint, not necessary')
-    parser.add_argument('--checkpoint_name', default='20230208170513', type=str)
+    parser.add_argument('--checkpoint_name', default='202302160001', type=str)
     parser.add_argument('--checkpoint_epoch', default=20, type=int)
     # Data Arguments
     parser.add_argument('--patch_data', default='./Data/Qupath2/patch', help='path to patch data')  # [변경] 이미지 패치 저장 경로

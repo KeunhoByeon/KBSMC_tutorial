@@ -49,7 +49,7 @@ def make_patch(slide_img, w_i, h_i, tissue_mask, alpha=0.1, is_contours=True):
 
     color_map = np.array([color_table[i] for i in slide_mask.ravel()], dtype=np.uint8)
     color_map = cv2.cvtColor(color_map.reshape((slide_mask.shape[0], slide_mask.shape[1], 3)), cv2.COLOR_BGR2RGB)
-    color_masked_patch = cv2.addWeighted(slide_img, 1-alpha, color_map, alpha, 0)
+    color_masked_patch = cv2.addWeighted(slide_img, 1 - alpha, color_map, alpha, 0)
 
     if is_contours:
         contour_map = np.zeros((slide_mask.shape[0], slide_mask.shape[1], 3), dtype=np.uint8)
@@ -70,6 +70,7 @@ def make_patch(slide_img, w_i, h_i, tissue_mask, alpha=0.1, is_contours=True):
     cv2.imwrite(slide_save_path, slide_img)
     cv2.imwrite(mask_save_path, slide_mask)
     cv2.imwrite(masked_slide_path, color_masked_patch)
+
 
 if __name__ == '__main__':
     # 0. Set Parameters

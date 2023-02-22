@@ -6,12 +6,13 @@ import cv2
 import numpy as np
 import pandas as pd
 import torch
+from geojson import Polygon, Feature, FeatureCollection, dump
 from tqdm import tqdm
 
 from dataloader import ClassificationDataset, prepare_KBSMCDataset
 from logger import Logger
 from models import Classifier
-from utils import import_openslide, load_color_info
+from utils import import_openslide, load_color_info, load_name_info
 
 # import openslide # for window
 openslide = import_openslide()
@@ -33,7 +34,7 @@ def get_thumbnail(svs_path, thumbnail_size):
 
 
 # 모델 출력 결과와 svs파일로 디버깅 이미지 생성
-def make_debug_image(outputs, svs_path, colors):
+def make_debug_image(args, outputs, svs_path, colors):
     # Load Thumbnail
     thumbnail, thumbnail_num_pixels, thumbnail_ratio = get_thumbnail(svs_path, 1024)
 
@@ -73,6 +74,25 @@ def make_debug_image(outputs, svs_path, colors):
     debug_image = np.vstack([thumbnail, target_image, pred_image]).astype(np.uint8)
 
     return debug_image
+
+
+def make_geojson(args, outputs, svs_path, colors, names):
+    features = []
+
+    for i, (patch_path, pred) in tqdm(enumerate(outputs), leave=False, desc="Post Processing (Geojson)"):
+        patch_filename = os.path.basename(patch_path)
+        patch_info = patch_filename.strip('.png').split('_patch_')[1]
+        x1 = int(patch_info.split('_')[0].strip('x'))
+        y1 = int(patch_info.split('_')[1].strip('y'))
+        x2 = int(patch_info.split('_')[0].strip('x')) + args.patch_size
+        y2 = int(patch_info.split('_')[1].strip('y')) + args.patch_size
+        contour = [[x1, y1], [x1, y2], [x2, y2], [x2, y1], [x1, y1]]
+        point = Polygon([contour])
+        features.append(Feature(id=i, geometry=point, properties={"objectType": "annotation", "classification": {"name": names[pred], "color": colors[pred]}}))
+
+    feature_collection = FeatureCollection(features)
+    with open(os.path.join(args.result, os.path.basename(svs_path).replace('.svs', '.geojson')), 'w') as f:
+        dump(feature_collection, f)
 
 
 def evaluate(model, eval_loader, svs_index, logger=None):
@@ -117,7 +137,14 @@ def evaluate(model, eval_loader, svs_index, logger=None):
 def run(args):
     # Model
     model = Classifier(args.model, num_classes=args.num_classes, pretrained=False)
-    model.load_state_dict(torch.load(args.checkpoint))
+
+    state_dict = torch.load(args.checkpoint, map_location='cpu')
+    try:
+        model.load_state_dict(state_dict)
+    except:
+        for key in list(state_dict.keys()):
+            state_dict["model." + key] = state_dict.pop(key)
+        model.load_state_dict(state_dict)
 
     # CUDA
     if torch.cuda.is_available():
@@ -141,6 +168,7 @@ def run(args):
 
     # Load Debugging Colors
     colors = load_color_info(args.json_path)
+    names = load_name_info(args.json_path)
 
     # Logger
     logger = Logger(os.path.join(args.result, 'log.txt'), float_round=5)
@@ -156,7 +184,8 @@ def run(args):
         outputs = evaluate(model, eval_loader, svs_index, logger=logger)
 
         # Make and Save Debugging Image
-        debug_image = make_debug_image(outputs, svs_paths[svs_index], colors=colors)
+        make_geojson(args, outputs, svs_paths[svs_index], colors=colors, names=names)
+        debug_image = make_debug_image(args, outputs, svs_paths[svs_index], colors=colors)
         save_path = os.path.join(args.result, "{}.png".format(svs_index))
         cv2.imwrite(save_path, debug_image)
 
@@ -168,7 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='efficientnet_b0')  # [변경] 사용할 모델 이름
     parser.add_argument('--num_classes', default=18, type=int, help='number of classes')  # [변경] 데이터의 클래스 종류의 수
     parser.add_argument('--checkpoint', default=None, type=str, help='path to checkpoint, not necessary')
-    parser.add_argument('--checkpoint_name', default='20230118191754', type=str)
+    parser.add_argument('--checkpoint_name', default='202302160001', type=str)
     parser.add_argument('--checkpoint_epoch', default=100, type=int)
     # Data Arguments
     parser.add_argument('--patch_data', default='./Data/Qupath2/patch', help='path to patch data')  # [변경] 이미지 패치 저장 경로
