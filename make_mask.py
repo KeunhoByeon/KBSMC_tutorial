@@ -10,6 +10,20 @@ from tqdm import tqdm
 from utils import import_openslide
 openslide = import_openslide()
 
+def get_roi_points(ptr_list, roi_list):
+    ''''
+    ptr_list = [x, y]
+    roi_list = [sx, sy, ex, ey]
+    '''
+    roi_list = roi_list
+    roi_points = []
+    for point in ptr_list:
+        for roi in roi_list:
+            sx, sy, ex, ey = roi
+            if sx <= point[0] <= ex and sy <= point[1] <= ey:
+                roi_points.append(point)
+    return roi_points
+
 def load_label_info(info, order=None):
     result = {}
     try:
@@ -32,11 +46,27 @@ def load_annotation_info(annotation_info):
             annotation_info = annotation_info["features"]
         elif "geometries" in annotation_info.keys():
             annotation_info = annotation_info["geometries"]
+        # find roi
+        annotation_list = []
+        roi_list = []
+        for object_idx in range(len(annotation_info)):
+            if annotation_info[object_idx]['properties']['classification']['name'].upper() == 'ROI':
+                sx, sy = 1e12, 1e12
+                ex, ey = 0, 0
+                for roi_pts in annotation_info[object_idx]['geometry']['coordinates'][0]:
+                    sx = roi_pts[0] if sx > roi_pts[0] else sx
+                    sy = roi_pts[1] if sy > roi_pts[1] else sy
+                    ex = roi_pts[0] if ex < roi_pts[0] else ex
+                    ey = roi_pts[1] if ey < roi_pts[1] else ey
+
+                roi_list.append([sx, sy, ex, ey])
+            else:
+                annotation_list.append(annotation_info[object_idx])
     except AttributeError:
         # already a list?
         pass
 
-    return annotation_info
+    return annotation_list, roi_list
 
 def make_mask(svs_path, annotation_geojson_path, label_info_path):
     # load svs
@@ -47,7 +77,7 @@ def make_mask(svs_path, annotation_geojson_path, label_info_path):
     # load annotation_ info
     annotation_geojson_file = open(annotation_geojson_path)
     annotation_geojson_file = json.load(annotation_geojson_file)
-    annotation_info = load_annotation_info(annotation_geojson_file)
+    annotation_info, roi_info = load_annotation_info(annotation_geojson_file)
 
     # load label info
     label_info_json_file = open(label_info_path)
@@ -57,6 +87,9 @@ def make_mask(svs_path, annotation_geojson_path, label_info_path):
     for object_idx in range(len(annotation_info)):
         if annotation_info[object_idx]['geometry']['type'].lower() == 'polygon':
             for i, annotation_pts in enumerate(annotation_info[object_idx]['geometry']['coordinates']):
+
+                roi_annotation_pts = get_roi_points(annotation_pts, roi_info)
+
                 pts = [(round(py), round(px)) for px, py in annotation_pts]
                 if i == 0:
                     name = annotation_info[object_idx]['properties']['classification']['name'].upper()
@@ -72,7 +105,7 @@ def make_mask(svs_path, annotation_geojson_path, label_info_path):
                     label = label_info[name][0]
                     mp.fill_polygon(pts, image_masked, label)
     del slide
-    return image_masked
+    return image_masked, roi_info
 
 if __name__ == '__main__':
     project_name = 'Qupath2'

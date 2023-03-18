@@ -21,6 +21,20 @@ def is_background(slide_img):
         return True
     return False
 
+def is_in_roi(x, y, patch_size, roi_info):
+    '''
+    roi_list = [sx, sy, ex, ey]
+    '''
+    ROI = False
+    if len(roi_info) == 0:
+        ROI = True
+    else:
+        for roi in roi_info:
+            sx, sy, ex, ey = roi
+            if sx <= x <= ex and sy <= y <= ey:
+                if sx <= x + patch_size <= ex and sy <= y + patch_size <= ey:
+                    ROI = True
+    return ROI
 
 def get_label(mask, patch_size, ratio):
     cnt = Counter(list(mask.reshape(-1)))
@@ -108,7 +122,7 @@ if __name__ == '__main__':
         svs_name = svs_name[:-4]
         annotation_geojson_path = f'./Data/{project_name}/data/{svs_name}.geojson'
         label_info_path = f'./Data/{project_name}/project/classifiers/classes.json'
-        tissue_mask = make_mask(svs_path, annotation_geojson_path, label_info_path)
+        tissue_mask, roi_info = make_mask(svs_path, annotation_geojson_path, label_info_path)
 
         os.makedirs(os.path.join(patch_save_dir, file_index), exist_ok=True)
         os.makedirs(os.path.join(mask_save_dir, file_index), exist_ok=True)
@@ -117,6 +131,8 @@ if __name__ == '__main__':
         coords = []
         for w_i in range(0, w_pixels, int(patch_size * step)):
             for h_i in range(0, h_pixels, int(patch_size * step)):
+                if not is_in_roi(w_i, h_i, patch_size, roi_info):
+                    continue
                 coords.append((w_i, h_i))
 
         # Multiprocessing
