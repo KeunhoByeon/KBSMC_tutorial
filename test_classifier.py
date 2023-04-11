@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import torch
-from geojson import Polygon, Feature, FeatureCollection, dump
+from geojson import MultiPolygon, Feature, FeatureCollection, dump
 from tqdm import tqdm
 
 from dataloader import ClassificationDataset, prepare_KBSMCDataset
@@ -77,8 +77,7 @@ def make_debug_image(args, outputs, svs_path, colors):
 
 
 def make_geojson(args, outputs, svs_path, colors, names):
-    features = []
-
+    contours = {}
     for i, (patch_path, pred) in tqdm(enumerate(outputs), leave=False, desc="Post Processing (Geojson)"):
         patch_filename = os.path.basename(patch_path)
         patch_info = patch_filename.strip('.png').split('_patch_')[1]
@@ -87,8 +86,15 @@ def make_geojson(args, outputs, svs_path, colors, names):
         x2 = int(patch_info.split('_')[0].strip('x')) + args.patch_size
         y2 = int(patch_info.split('_')[1].strip('y')) + args.patch_size
         contour = [[x1, y1], [x1, y2], [x2, y2], [x2, y1], [x1, y1]]
-        point = Polygon([contour])
-        features.append(Feature(id=i, geometry=point, properties={"objectType": "annotation", "classification": {"name": names[pred], "color": colors[pred]}}))
+
+        if pred not in contours.keys():
+            contours[pred] = []
+        contours[pred].append([contour])
+
+    features = []
+    for i, (pred, contours) in enumerate(contours.items()):
+        properties = {"objectType": "annotation", "classification": {"name": names[pred], "color": colors[pred]}}
+        features.append(Feature(id=i, geometry=MultiPolygon(contours), properties=properties))
 
     feature_collection = FeatureCollection(features)
     with open(os.path.join(args.result, os.path.basename(svs_path).replace('.svs', '.geojson')), 'w') as f:
@@ -197,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='efficientnet_b0')  # [변경] 사용할 모델 이름
     parser.add_argument('--num_classes', default=18, type=int, help='number of classes')  # [변경] 데이터의 클래스 종류의 수
     parser.add_argument('--checkpoint', default=None, type=str, help='path to checkpoint, not necessary')
-    parser.add_argument('--checkpoint_name', default='202302160001', type=str)
+    parser.add_argument('--checkpoint_name', default='20230118191754', type=str)
     parser.add_argument('--checkpoint_epoch', default=100, type=int)
     # Data Arguments
     parser.add_argument('--patch_data', default='./Data/Qupath2/patch', help='path to patch data')  # [변경] 이미지 패치 저장 경로
